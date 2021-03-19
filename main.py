@@ -21,7 +21,7 @@ class WineRater:
         redData, whiteData = self.getWineQualityData()
         self.redWineData = redData
         self.whiteWineData = whiteData
-        self.normalizeData()
+        # self.normalizeData()
 
         redIO, whiteIO = self.splitData()
         # "Red Training Inputs" = "rTrainI"
@@ -73,11 +73,14 @@ class WineRater:
         [[redTrainingInputs, redTrainingOutputs, redTestingInputs,
         redTestingOutputs], [whiteTrainingInputs, whiteTrainingOutputs,
         whiteTestingInputs, whiteTestingOutputs]]
+
+        Side effect is that the redWineData and whiteWineData is shuffled.
         """
         values = [None, None]
 
         for i, array in enumerate((self.redWineData, self.whiteWineData)):
             # Split into two (halfway down the file)
+            np.random.shuffle(array)
             training, testing = np.split(array, [array.shape[0] // 2], axis=0)
 
             trainingInputs = training[:, :-1]
@@ -95,16 +98,17 @@ class WineRater:
 
         # Create input layer
         # Use Rectified Linear Unit (x > 0 ? 1 : 0)
-        self.model.add(Dense(15, input_dim=11, activation='relu'))
-        self.model.add(Dense(11, activation='relu'))
+        self.model.add(Dense(11, input_dim=11, activation='sigmoid'))
+        self.model.add(Dense(11, activation='sigmoid'))
+        self.model.add(Dense(11, activation='sigmoid'))
         self.model.add(Dense(1, activation='sigmoid'))
 
-        self.model.compile(loss='binary_crossentropy',
+        self.model.compile(loss='mean_squared_error',
                            optimizer='adam',
                            metrics=['accuracy'])
 
     def trainModel(self):
-        self.model.fit(self.rTrainI, self.rTrainO, epochs=10, batch_size=100)
+        self.model.fit(self.rTrainI, self.rTrainO, epochs=150, batch_size=400)
         _, accuracy = self.model.evaluate(self.rTrainI, self.rTrainO)
         print('Training Data Accuracy: %.2f' % (accuracy * 100))
 
