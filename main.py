@@ -4,8 +4,9 @@
 import numpy as np
 from tensorflow import keras
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, LayerNormalization
 from tensorflow.keras.layers.experimental.preprocessing import Normalization
+from tensorflow.keras.losses import SparseCategoricalCrossentropy
 
 
 class WineRater:
@@ -44,12 +45,15 @@ class WineRater:
 
     def normalizeData(self):
         """
-        Normalize each column of the data so that it has a standard
-        variation of 1 and a mean of 0, as keras expects.
+        Normalize each column of the data (except last) so that it has a
+        standard variation of 1 and a mean of 0, as keras expects.
         """
         for array in (self.redWineData, self.whiteWineData):
             # Transpose the matrix to iterate by column
             for i, column in enumerate(array.T):
+                if i == array.shape[1] - 1:
+                    continue
+
                 # generate normalization function
                 normalizer = Normalization(axis=-1)
                 normalizer.adapt(column)
@@ -64,20 +68,20 @@ class WineRater:
         split off the ratings (which is what we're trying
         to predict).
         Returns in the form:
-        [red [training validation, testing], white...]
+        [red [training, validation, testing], white...]
 
         Side effect is that the redWineData and whiteWineData are shuffled.
         """
         values = [None, None]
 
         for i, array in enumerate((self.redWineData, self.whiteWineData)):
-            # Splits the data into 70/10/20, training validation, testing
-            # np.random.shuffle(array)
+            # Splits the data into 70/10/20, training, validation, testing
+            np.random.shuffle(array)
             entries = array.shape[0]
             training, validation, testing = np.split(array,
                                                     [round(entries * 7 / 10),
                                                      round(entries * 8 / 10)],
-                                                    axis=0)
+                                                     axis=0)
 
             trainingInputs = training[:, :-1]
             trainingOutputs = training[:, -1]
@@ -96,12 +100,11 @@ class WineRater:
 
         # Create input layer
         # Use Rectified Linear Unit (x > 0 ? 1 : 0)
-        self.model.add(Dense(11, input_dim=11, activation='relu'))
+        self.model.add(Dense(11, input_dim=11, activation='sigmoid'))
         self.model.add(Dense(11, activation='sigmoid'))
-        self.model.add(Dense(11, activation='sigmoid'))
-        self.model.add(Dense(1, activation='sigmoid'))
+        self.model.add(Dense(10, activation='sigmoid'))
 
-        self.model.compile(loss='mean_squared_error',
+        self.model.compile(loss=SparseCategoricalCrossentropy(),
                            optimizer='adam',
                            metrics=['accuracy'])
 
@@ -121,6 +124,3 @@ if __name__ == "__main__":
     wr.buildModel()
     wr.trainModel()
     wr.testModel()
-
-    print(wr.rTrainO[:10])
-    print(wr.rTestO[:10])
